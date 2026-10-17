@@ -1,0 +1,12 @@
+/* Qo‘shimchalar: server auth, parolni almashtirish, admin parol tiklash, reyting */
+async function srvAuth(reg){const e=val('em').toLowerCase(),p=$('#pw').value;try{const d=await api('auth',{method:'POST',body:JSON.stringify({email:e,password:p,name:reg?val('nm'):'',register:reg})});
+TOKEN=d.token;try{localStorage.setItem('kl_tok',TOKEN)}catch(x){}await pull();S={nav:'home',view:'home'};render()}catch(x){toast(x.message)}}
+async function srvLogout(){TOKEN='';try{localStorage.removeItem('kl_tok')}catch(e){}await pull();S={nav:'home',view:'home'};render()}
+async function chpw(){const o=prompt('Joriy parol:');if(o===null)return;const n=prompt('Yangi parol (kamida 6 belgi):');if(!n||n.length<6)return toast('Parol kamida 6 belgi bo‘lsin');
+try{if(SRV)await api('passwd',{method:'POST',body:JSON.stringify({old:o,new:n})});else{const u=me();if(await sha(o)!==u.pw)throw new Error('Joriy parol noto‘g‘ri');u.pw=await sha(n);save()}toast('Parol yangilandi')}catch(e){toast(e.message)}}
+async function admReset(id){const n=prompt('Yangi parol (kamida 6 belgi):');if(!n||n.length<6)return;try{if(SRV)await api('reset',{method:'POST',body:JSON.stringify({id,password:n})});else{DB.users.find(u=>u.id===id).pw=await sha(n);save()}log('Parol almashtirildi: '+uname(id));toast('Parol almashtirildi')}catch(e){toast(e.message)}}
+function rankLocal(){return DB.users.filter(u=>u.role==='student'&&u.on).map(u=>{const d=Object.keys(DB.prog).filter(k=>k.startsWith(u.id+':')).reduce((n,k)=>n+DB.prog[k].length,0),a=DB.att.filter(x=>x.u===u.id);return{name:u.name,done:d,avg:avg(a.map(x=>x.pct))}}).sort((a,b)=>b.done*10+b.avg-a.done*10-a.avg).slice(0,20)}
+const rankTable=r=>`<div class="card"><table><tr><th>#</th><th>O‘quvchi</th><th>Darslar</th><th>O‘rt. test</th></tr>${r.map((x,i)=>`<tr><td>${['🥇','🥈','🥉'][i]||i+1}</td><td>${esc(x.name)}</td><td>${x.done}</td><td>${x.avg}%</td></tr>`).join('')||'<tr><td colspan="4" class="mu">Hali ma’lumot yo‘q</td></tr>'}</table></div>`;
+function rankView(){S.rk=null;(SRV?api('rank'):Promise.resolve(rankLocal())).then(r=>{S.rk=r;const e=$('#rk');if(e)e.innerHTML=rankTable(r)}).catch(()=>{});return'<h2>🏆 Reyting</h2><p class="mu">Darslar soni va test natijalari bo‘yicha eng yaxshi 20 o‘quvchi.</p><div id="rk" class="mu">Yuklanmoqda…</div>'}
+const _go=go;go=function(k){if(SRV&&TOKEN&&S.view!=='test')pull().then(()=>_go(k));else _go(k)};
+addEventListener('focus',()=>{if(SRV&&TOKEN&&S.view!=='test'&&!document.activeElement?.matches?.('input,textarea,select'))pull().then(render)});
